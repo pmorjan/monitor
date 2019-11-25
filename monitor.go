@@ -1,4 +1,24 @@
-// Copyright Peter Morjan
+// MIT License
+//
+// Copyright (c) 2019 Peter Morjan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 package main
 
@@ -40,7 +60,6 @@ var (
 	rootdev   = getRootdev()
 	GitCommit string
 	BuildDate string
-	mu        sync.Mutex
 )
 
 func usage() {
@@ -60,6 +79,7 @@ func specialKeys() {
 	fmt.Fprintln(os.Stderr, "  C : run stress-ng cpu on all threads for 10 sec")
 	fmt.Fprintln(os.Stderr, "  m : run stress-ng matrix on one threads for 10 sec")
 	fmt.Fprintln(os.Stderr, "  M : run stress-ng matrix on all threads for 10 sec")
+	fmt.Fprintln(os.Stderr, "  r : reset min/max counters")
 	fmt.Fprintln(os.Stderr, "  h : help")
 	fmt.Fprintln(os.Stderr, "  q : quit")
 }
@@ -158,6 +178,8 @@ func keyHandler(keyChan chan<- rune) {
 			go exec.Command("/usr/bin/stress-ng", "--matrix", "1", "--timeout", "10s").Run()
 		case 'M':
 			go exec.Command("/usr/bin/stress-ng", "--matrix", "0", "--timeout", "10s").Run()
+		case 'r':
+			resetFreqBuffer()
 		default:
 			keyChan <- k
 		}
@@ -341,9 +363,21 @@ func loadAvg() string {
 
 var (
 	fileCpuinfo *os.File
+	mu          sync.Mutex
 	minFreq     = make(map[int]float64)
 	maxFreq     = make(map[int]float64)
 )
+
+func resetFreqBuffer() {
+	mu.Lock()
+	defer mu.Unlock()
+	for i := range minFreq {
+		minFreq[i] = 0
+	}
+	for i := range maxFreq {
+		maxFreq[i] = 0
+	}
+}
 
 func cpuinfo() string {
 	var err error
@@ -410,8 +444,10 @@ func cpuinfo() string {
 			}
 
 			cores[core_id] = fmt.Sprintf("%s MHz |%s", red("%4.0f", mhz), bar)
+			mu.Lock()
 			minFreq[core_id] = calcMinFreq(minFreq[core_id], mhz)
 			maxFreq[core_id] = calcMaxFreq(maxFreq[core_id], mhz)
+			mu.Unlock()
 			coreIdStr = ""
 			mhzStr = ""
 		}
@@ -420,9 +456,11 @@ func cpuinfo() string {
 		log.Fatal(err)
 	}
 
+	mu.Lock()
 	for i := 0; i < len(cores); i++ {
 		str += fmt.Sprintf(" %2d: %s  %s %s\n", i, cores[i], green("%4.0f", minFreq[i]), red("%4.0f", maxFreq[i]))
 	}
+	mu.Unlock()
 	str += fmt.Sprintln(footer)
 	return str
 }
