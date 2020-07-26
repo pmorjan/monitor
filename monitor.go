@@ -1,3 +1,5 @@
+// +build linux,amd64
+
 // MIT License
 //
 // Copyright (c) 2019 Peter Morjan
@@ -47,7 +49,6 @@ import (
 )
 
 var (
-	delay     time.Duration
 	batchmode = flag.Bool("b", false, "batch mode")
 	version   = flag.Bool("v", false, "show version")
 	help      = flag.Bool("h", false, "print this help")
@@ -118,8 +119,6 @@ func main() {
 
 	keyChan := make(chan rune, 1)
 	go keyHandler(keyChan)
-	// defer profile.Start(profile.NoShutdownHook, profile.MemProfile).Stop()
-
 	interval := time.Second
 	tick := time.NewTicker(interval)
 Loop:
@@ -127,7 +126,7 @@ Loop:
 		s := str()
 		fmt.Print("\033[1;1H") // position cursor
 		fmt.Print("\033[2J")   // clear screen
-		fmt.Printf("%s Refresh Interval: %v (? for more options)\n\n", time.Now().Format("15:04:05"), interval)
+		fmt.Printf("%s Refresh Interval: %v (? for help)\n\n", time.Now().Format("15:04:05"), interval)
 		fmt.Print(s)
 		select {
 		case <-tick.C:
@@ -257,7 +256,7 @@ func sensors() string {
 		default:
 			if debug.Get() {
 				log.Printf("# unknown module %s\n", moduleName)
-				log.Printf(unknown(subdir))
+				log.Print(unknown(subdir))
 			}
 		}
 	}
@@ -465,7 +464,7 @@ func cpuinfo() string {
 	return str
 }
 
-var reMemory = regexp.MustCompile(":?\\s+")
+var reMemory = regexp.MustCompile(`:?\s+`)
 
 func meminfo() string {
 	mem := make(map[string]int)
