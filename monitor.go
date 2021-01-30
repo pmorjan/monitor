@@ -124,8 +124,7 @@ func main() {
 Loop:
 	for {
 		s := str()
-		fmt.Print("\033[1;1H") // position cursor
-		fmt.Print("\033[2J")   // clear screen
+		clearScreen()
 		fmt.Printf("%s Refresh Interval: %v (? for help)\n\n", time.Now().Format("15:04:05"), interval)
 		fmt.Print(s)
 		select {
@@ -147,8 +146,7 @@ Loop:
 					tick = time.NewTicker(interval)
 				}
 			case 'h', '?':
-				fmt.Print("\033[1;1H") // position cursor
-				fmt.Print("\033[2J")   // clear screen
+				clearScreen()
 				specialKeys()
 				<-keyChan
 			}
@@ -183,6 +181,11 @@ func keyHandler(keyChan chan<- rune) {
 			keyChan <- k
 		}
 	}
+}
+
+func clearScreen() {
+	fmt.Print("\033[1;1H") // position cursor
+	fmt.Print("\033[2J")   // clear screen
 }
 
 func timed(f func() string) string {
@@ -251,12 +254,17 @@ func sensors() string {
 			fans = append(fans, f...)
 		case "radeon":
 			temps = append(temps, temp1(subdir, "GPU"))
-		case "iwlwifi":
+		case "iwlwifi_1":
 			temps = append(temps, temp1(subdir, "WiFi"))
+		case "nvme":
+			temps = append(temps, temp1(subdir, "NVME"))
 		default:
 			if debug.Get() {
-				log.Printf("# unknown module %s\n", moduleName)
+				clearScreen()
+				log.Printf("\n# unknown module %s\n", moduleName)
 				log.Print(unknown(subdir))
+				time.Sleep(time.Second)
+				clearScreen()
 			}
 		}
 	}
